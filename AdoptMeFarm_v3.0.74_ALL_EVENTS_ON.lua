@@ -8488,17 +8488,23 @@ __moduleSources["Services/Interface"] = function(...)
             if not parent then
                 parent = player:WaitForChild("PlayerGui")
             end
+            -- Prefer PlayerGui on mobile executors; some Delta builds return a CoreGui
+            -- container that accepts instances but does not display them reliably.
+            local okPlayerGui, playerGui = pcall(function() return player:WaitForChild("PlayerGui") end)
+            if okPlayerGui and playerGui then parent = playerGui end
             local old = parent:FindFirstChild("AdoptMeFarmLocalGUI")
             if old then pcall(function() old:Destroy() end) end
             local gui = Instance.new("ScreenGui")
             gui.Name = "AdoptMeFarmLocalGUI"
             gui.ResetOnSpawn = false
+            gui.IgnoreGuiInset = true
+            gui.DisplayOrder = 999
             gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
             gui.Parent = parent
             local frame = Instance.new("Frame")
             frame.Name = "MainWindow"
-            frame.Size = UDim2.new(0, 360, 0, 430)
-            frame.Position = UDim2.new(0, 24, 0.5, -215)
+            frame.Size = UDim2.new(0.92, 0, 0.78, 0)
+            frame.Position = UDim2.new(0.04, 0, 0.11, 0)
             frame.BackgroundColor3 = Color3.fromRGB(24, 27, 35)
             frame.BorderSizePixel = 0
             frame.Parent = gui
@@ -8663,6 +8669,23 @@ __moduleSources["Services/Interface"] = function(...)
             end)
             addConnection(UserInputService.InputEnded, function(input)
                 if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = false end
+            end)
+            -- Persistent on-screen button lets phone users reopen the window after ×.
+            local reopen = Instance.new("TextButton")
+            reopen.Name = "AdoptMeFarmReopen"
+            reopen.AnchorPoint = Vector2.new(1, 1)
+            reopen.Position = UDim2.new(1, -14, 1, -90)
+            reopen.Size = UDim2.new(0, 54, 0, 54)
+            reopen.BackgroundColor3 = Color3.fromRGB(190, 88, 36)
+            reopen.TextColor3 = Color3.new(1, 1, 1)
+            reopen.Font = Enum.Font.GothamBold
+            reopen.TextSize = 15
+            reopen.Text = "AV"
+            reopen.ZIndex = 100
+            reopen.Parent = gui
+            Instance.new("UICorner", reopen).CornerRadius = UDim.new(1, 0)
+            addConnection(reopen.Activated, function()
+                frame.Visible = not frame.Visible
             end)
             addConnection(close.Activated, function() frame.Visible = false end)
             addConnection(UserInputService.InputBegan, function(input, processed)
