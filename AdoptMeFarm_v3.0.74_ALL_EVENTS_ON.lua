@@ -124,7 +124,7 @@ local UserConfig = {
             PigeonNest = true,
             AutoLever = true, -- v2.1.32: put the Lightning Lever from your backpack into the machine (no Skelicorn buy)
             CandyPets = {
-                Enabled = false,
+                Enabled = true,
                 Pick = {}, -- what to buy (Skelicorn too): one every 0.5 s until the candy runs out
                 MaxBuy = false, -- true: as many as the candy pays for, in ONE purchase
                 KeepCandy = 0, -- candy the shop never spends
@@ -524,8 +524,8 @@ __moduleSources["Core/Config"] = function(...)
             },
             Event = {
                 Enabled = true,
-                GhostGallery = true,
-                Hauntlet = true,
+                GhostGallery = false,
+                Hauntlet = false,
                 HauntletMove = "tween", -- "tween" (smooth, default) | "walk" | "tp": how the bot reaches a door's circle
                 HauntletMoveSeconds = 0.5, -- tween: seconds to reach the circle (0.1 - 5; the room's time is ~25 s)
                 -- v3.0.69: Stitches' Spotlight move speed in studs/s (the per-frame mover; 60 - 120)
@@ -542,15 +542,15 @@ __moduleSources["Core/Config"] = function(...)
                 Spotlight = true,
                 -- v3.0.21 Shoebill (Haunted Hotel doors): a Lost Sock / Headphones in my backpack is given at its door
                 Shoebill = true,
-                Crypt = true,
+                Crypt = false,
                 MummySpider = true,
                 CryptOpen = { "ladder" },
-                Quests = true,
-                PigeonNest = true,
-                AutoLever = true,
-                AutoNest = true,
-                StrayCat = true,
-                PetPen = true,
+                Quests = false,
+                PigeonNest = false,
+                AutoLever = false,
+                AutoNest = false,
+                StrayCat = false,
+                PetPen = false,
                 PetPenMinutes = 15,
                 CandyPets = {
                     Enabled = false,
@@ -8488,23 +8488,17 @@ __moduleSources["Services/Interface"] = function(...)
             if not parent then
                 parent = player:WaitForChild("PlayerGui")
             end
-            -- Prefer PlayerGui on mobile executors; some Delta builds return a CoreGui
-            -- container that accepts instances but does not display them reliably.
-            local okPlayerGui, playerGui = pcall(function() return player:WaitForChild("PlayerGui") end)
-            if okPlayerGui and playerGui then parent = playerGui end
             local old = parent:FindFirstChild("AdoptMeFarmLocalGUI")
             if old then pcall(function() old:Destroy() end) end
             local gui = Instance.new("ScreenGui")
             gui.Name = "AdoptMeFarmLocalGUI"
             gui.ResetOnSpawn = false
-            gui.IgnoreGuiInset = true
-            gui.DisplayOrder = 999
             gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
             gui.Parent = parent
             local frame = Instance.new("Frame")
             frame.Name = "MainWindow"
-            frame.Size = UDim2.new(0.92, 0, 0.78, 0)
-            frame.Position = UDim2.new(0.04, 0, 0.11, 0)
+            frame.Size = UDim2.new(0, 360, 0, 430)
+            frame.Position = UDim2.new(0, 24, 0.5, -215)
             frame.BackgroundColor3 = Color3.fromRGB(24, 27, 35)
             frame.BorderSizePixel = 0
             frame.Parent = gui
@@ -8669,23 +8663,6 @@ __moduleSources["Services/Interface"] = function(...)
             end)
             addConnection(UserInputService.InputEnded, function(input)
                 if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = false end
-            end)
-            -- Persistent on-screen button lets phone users reopen the window after ×.
-            local reopen = Instance.new("TextButton")
-            reopen.Name = "AdoptMeFarmReopen"
-            reopen.AnchorPoint = Vector2.new(1, 1)
-            reopen.Position = UDim2.new(1, -14, 1, -90)
-            reopen.Size = UDim2.new(0, 54, 0, 54)
-            reopen.BackgroundColor3 = Color3.fromRGB(190, 88, 36)
-            reopen.TextColor3 = Color3.new(1, 1, 1)
-            reopen.Font = Enum.Font.GothamBold
-            reopen.TextSize = 15
-            reopen.Text = "AV"
-            reopen.ZIndex = 100
-            reopen.Parent = gui
-            Instance.new("UICorner", reopen).CornerRadius = UDim.new(1, 0)
-            addConnection(reopen.Activated, function()
-                frame.Visible = not frame.Visible
             end)
             addConnection(close.Activated, function() frame.Visible = false end)
             addConnection(UserInputService.InputBegan, function(input, processed)
@@ -25618,7 +25595,9 @@ __moduleSources["main"] = function(...)
                 okUi, uiError = pcall(Interface.start, api, { logger = logger, settings = config.Interface })
             end
             if not okUi then
-                logger:warn("Interface", "Window not opened (the farm keeps running): " .. tostring(uiError))
+                local message = "Window not opened: " .. tostring(uiError)
+                logger:warn("Interface", message)
+                if type(warn) == "function" then pcall(warn, "[AdoptMeFarm] " .. message) end
             end
             return okUi
         end
@@ -25647,11 +25626,16 @@ local startOk, startError = pcall(function()
     return import("main")(settings, launchInfo)
 end)
 if not startOk then
-    -- v2.1.13: no console output (user rule): the reason goes to a file on this device
+    -- Diagnostic fix: report startup errors in the executor console instead of failing silently.
+    if type(warn) == "function" then
+        pcall(warn, "[AdoptMeFarm] STARTUP FAILED: " .. tostring(startError))
+    end
     pcall(function()
         if type(offline_makefolder) == "function" and type(offline_isfolder) == "function" and not offline_isfolder("AdoptMeFarm") then
             offline_makefolder("AdoptMeFarm")
         end
-        offline_writefile("AdoptMeFarm/start_error.txt", os.date("%Y-%m-%d %H:%M:%S") .. " Failed to start: " .. tostring(startError) .. "\n")
+        if type(offline_writefile) == "function" then
+            offline_writefile("AdoptMeFarm/start_error.txt", os.date("%Y-%m-%d %H:%M:%S") .. " Failed to start: " .. tostring(startError) .. "\n")
+        end
     end)
 end
